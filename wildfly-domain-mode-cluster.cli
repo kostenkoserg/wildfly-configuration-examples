@@ -1,0 +1,30 @@
+# Cleanup existing servers and groups
+:stop-servers(blocking=true)
+/host=master/server-config=server-one:remove
+/host=master/server-config=server-two:remove
+/host=master/server-config=server-three:remove
+/server-group=main-server-group:remove
+/server-group=other-server-group:remove
+
+# Create new server group and servers, using the full-ha profile so mod_cluster support is included
+/server-group=backend-servers:add(profile=full-ha, socket-binding-group=full-ha-sockets)
+/host=master/server-config=backend1:add(group=backend-servers, socket-binding-port-offset=100)
+/host=master/server-config=backend2:add(group=backend-servers, socket-binding-port-offset=200)
+ 
+# Start the backend servers
+/server-group=backend-servers:start-servers(blocking=true)
+ 
+# Add system properties (so we can tell them apart)
+/host=master/server-config=backend1/system-property=server.name:add(boot-time=false, value=backend1)
+/host=master/server-config=backend2/system-property=server.name:add(boot-time=false, value=backend2)
+
+/server-group=load-balancer:add(profile=load-balancer, socket-binding-group=load-balancer-sockets)
+/host=master/server-config=load-balancer:add(group=load-balancer)
+/socket-binding-group=load-balancer-sockets/socket-binding=modcluster:write-attribute(name=interface, value=public)
+/server-group=load-balancer:start-servers
+
+# Set up the server group for load balancer
+/server-group=load-balancer:add(profile=load-balancer, socket-binding-group=load-balancer-sockets)
+/host=master/server-config=load-balancer:add(group=load-balancer)
+/socket-binding-group=load-balancer-sockets/socket-binding=modcluster:write-attribute(name=interface, value=public)
+/server-group=load-balancer:start-servers
